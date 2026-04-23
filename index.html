@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>truu · Service-Abdeckung DACH</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<style>
+  :root {
+    --truu-deep: #0a2540;
+    --truu-primary: #0b5fa4;
+    --truu-accent: #29b6d1;
+    --truu-accent-soft: #d7f0f5;
+    --truu-bg: #f5f8fb;
+    --truu-panel: #ffffff;
+    --truu-text: #0a2540;
+    --truu-muted: #6b7a8a;
+    --truu-border: #e3e9ef;
+    --truu-danger: #d9534f;
+    --truu-success: #2ea169;
+    --shadow-sm: 0 1px 2px rgba(10, 37, 64, 0.06);
+    --shadow-md: 0 4px 16px rgba(10, 37, 64, 0.08);
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--truu-text);
+    background: var(--truu-bg);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ===== Sidebar ===== */
+  .sidebar {
+    background: var(--truu-panel);
+    border-right: 1px solid var(--truu-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid var(--truu-border);
+    background: linear-gradient(135deg, var(--truu-deep) 0%, var(--truu-primary) 100%);
+    color: #fff;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .brand-logo {
+    height: 26px;
+    width: auto;
+    color: #ffffff;
+    flex-shrink: 0;
+  }
+
+  .brand-divider {
+    width: 1px;
+    height: 26px;
+    background: rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
+  }
+
+  .brand-text {
+    min-width: 0;
+  }
+
+  .brand-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    line-height: 1.2;
+  }
+
+  .brand-sub {
+    font-size: 11px;
+    opacity: 0.75;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .tagline {
+    font-size: 11px;
+    opacity: 0.65;
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  .sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 22px;
+  }
+
+  .section {
+    margin-bottom: 22px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--truu-muted);
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+
+  /* ===== Form ===== */
+  .form-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: var(--truu-muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--truu-border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--truu-text);
+    background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    outline: none;
+    border-color: var(--truu-accent);
+    box-shadow: 0 0 0 3px rgba(41, 182, 209, 0.15);
+  }
+
+  .field input[type="color"] {
+    padding: 2px;
+    height: 34px;
+    cursor: pointer;
+  }
+
+  .btn {
+    padding: 9px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.1s, box-shadow 0.15s, background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn-primary {
+    background: var(--truu-primary);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--truu-deep); }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:disabled { opacity: 0.6; cursor: wait; }
+
+  .btn-secondary {
+    background: var(--truu-accent-soft);
+    color: var(--truu-deep);
+  }
+  .btn-secondary:hover { background: #c5e6ed; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--truu-muted);
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .btn-ghost:hover { color: var(--truu-deep); }
+
+  .btn-danger-ghost {
+    background: transparent;
+    color: var(--truu-danger);
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+  .btn-danger-ghost:hover { background: rgba(217, 83, 79, 0.08); }
+
+  /* ===== Stats ===== */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .stat {
+    background: var(--truu-accent-soft);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--truu-primary);
+    letter-spacing: 0.6px;
+    font-weight: 600;
+  }
+
+  .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--truu-deep);
+    margin-top: 2px;
+  }
+
+  /* ===== Technician list ===== */
+  .tech-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tech-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid var(--truu-border);
+    border-radius: var(--radius);
+    transition: box-shadow 0.15s;
+  }
+
+  .tech-item:hover {
+    box-shadow: var(--shadow-sm);
+  }
+
+  .tech-item.inactive {
+    opacity: 0.5;
+  }
+
+  .tech-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(10, 37, 64, 0.15);
+  }
+
+  .tech-info {
+    min-width: 0;
+  }
+
+  .tech-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--truu-deep);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tech-meta {
+    font-size: 11px;
+    color: var(--truu-muted);
+    margin-top: 1px;
+  }
+
+  .tech-actions {
+    display: flex;
+    gap: 2px;
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--truu-muted);
+    font-size: 13px;
+    padding: 30px 10px;
+    border: 1px dashed var(--truu-border);
+    border-radius: var(--radius);
+  }
+
+  /* ===== Toolbar row ===== */
+  .toolbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar .btn {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* ===== Map ===== */
+  .map-wrap {
+    position: relative;
+    height: 100vh;
+  }
+
+  #map {
+    width: 100%;
+    height: 100%;
+    background: var(--truu-bg);
+  }
+
+  .map-legend {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    padding: 10px 14px;
+    border-radius: 10px;
+    box-shadow: var(--shadow-md);
+    font-size: 12px;
+    color: var(--truu-muted);
+    z-index: 500;
+    max-width: 260px;
+  }
+
+  .map-legend strong {
+    color: var(--truu-deep);
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translate(-50%, -20px);
+    background: var(--truu-deep);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: var(--shadow-md);
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  .toast.error { background: var(--truu-danger); }
+  .toast.success { background: var(--truu-success); }
+
+  /* ===== Popup ===== */
+  .leaflet-popup-content-wrapper {
+    border-radius: 10px;
+  }
+
+  .popup-title {
+    font-weight: 600;
+    color: var(--truu-deep);
+    margin-bottom: 4px;
+    font-size: 14px;
+  }
+  .popup-meta {
+    font-size: 12px;
+    color: var(--truu-muted);
+    line-height: 1.4;
+  }
+
+  /* ===== Scrollbar ===== */
+  .sidebar-body::-webkit-scrollbar { width: 8px; }
+  .sidebar-body::-webkit-scrollbar-thumb {
+    background: var(--truu-border);
+    border-radius: 4px;
+  }
+
+  @media (max-width: 900px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+    }
+    .sidebar { max-height: 50vh; }
+    .map-wrap { height: 50vh; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 272.3 86.7" xmlns="http://www.w3.org/2000/svg" aria-label="truu" role="img">
+          <g fill="currentColor">
+            <path d="M59.7,50.4c-0.2-9.6,3.7-18.7,10.6-25.4c6.6-6.9,15.9-10.7,25.4-10.6h14.8v16.9H95.8c-5.1-0.1-10,1.9-13.5,5.6c-3.6,3.5-5.6,8.4-5.5,13.4v36.2H59.7V50.4z"/>
+            <path d="M174.5,14.5h16.9v35.9c0.2,9.6-3.7,18.8-10.6,25.4c-6.6,6.9-15.8,10.7-25.3,10.6c-9.6,0.2-18.8-3.7-25.4-10.6c-6.9-6.6-10.7-15.9-10.6-25.4V14.5h16.9v35.9c-0.1,5.1,1.9,10,5.6,13.6c3.6,3.6,8.4,5.6,13.5,5.6c5.1,0.1,9.9-1.9,13.5-5.6c3.6-3.6,5.6-8.5,5.5-13.5V14.5z"/>
+            <path d="M255.4,14.5h16.9v35.9c0.2,9.6-3.7,18.8-10.6,25.4c-6.6,6.9-15.8,10.7-25.3,10.6c-9.6,0.1-18.8-3.7-25.4-10.6c-6.9-6.6-10.7-15.9-10.6-25.4V14.5h16.9v35.9c-0.1,5.1,1.9,10,5.5,13.6s8.4,5.6,13.5,5.6c5.1,0.1,9.9-1.9,13.4-5.6c3.6-3.6,5.6-8.5,5.5-13.5L255.4,14.5z"/>
+            <path d="M36,69.5c-5.1,0.1-10-1.9-13.5-5.5c-3.6-3.5-5.6-8.4-5.5-13.4V31.5h23v-17H16.9V0H0v50.5c-0.2,9.6,3.7,18.7,10.6,25.4c6.6,6.9,15.9,10.7,25.4,10.6h14.8v-17H36z"/>
+          </g>
+        </svg>
+        <div class="brand-divider"></div>
+        <div class="brand-text">
+          <div class="brand-title">Service-Abdeckung</div>
+          <div class="brand-sub">DACH · Techniker & Radius</div>
+        </div>
+      </div>
+      <div class="tagline">It's good. to be truu.</div>
+    </div>
+
+    <div class="sidebar-body">
+
+      <!-- Stats -->
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Techniker</div>
+          <div class="stat-value" id="statCount">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Ø Radius</div>
+          <div class="stat-value" id="statRadius">— km</div>
+        </div>
+      </div>
+
+      <!-- Add form -->
+      <div class="section">
+        <h3 class="section-title">Techniker hinzufügen</h3>
+        <form class="form-grid" id="addForm" autocomplete="off">
+          <div class="field">
+            <label for="techName">Name</label>
+            <input type="text" id="techName" placeholder="z.B. Max Mustermann" required />
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="techPlz">PLZ</label>
+              <input type="text" id="techPlz" placeholder="75172" required />
+            </div>
+            <div class="field">
+              <label for="techCountry">Land</label>
+              <select id="techCountry" required>
+                <option value="DE">Deutschland</option>
+                <option value="AT">Österreich</option>
+                <option value="CH">Schweiz</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="techRadius">Radius (km)</label>
+              <input type="number" id="techRadius" min="1" max="500" value="50" required />
+            </div>
+            <div class="field">
+              <label for="techColor">Farbe</label>
+              <input type="color" id="techColor" value="#0b5fa4" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" id="addBtn">
+            + Techniker hinzufügen
+          </button>
+        </form>
+      </div>
+
+      <!-- List -->
+      <div class="section">
+        <h3 class="section-title">Techniker-Team</h3>
+        <div class="tech-list" id="techList"></div>
+      </div>
+
+      <!-- Tools -->
+      <div class="section">
+        <h3 class="section-title">Daten</h3>
+        <div class="toolbar">
+          <button class="btn btn-secondary" id="exportBtn">⬇ Export JSON</button>
+          <button class="btn btn-secondary" id="importBtn">⬆ Import JSON</button>
+          <button class="btn btn-ghost" id="clearBtn" style="color: var(--truu-danger);">Alle löschen</button>
+        </div>
+        <input type="file" id="importFile" accept=".json,application/json" style="display:none" />
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Map -->
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="map-legend">
+      <strong>Service-Abdeckung</strong>
+      Kreise zeigen den Einsatzradius jedes Technikers. Überlappungen = doppelte Abdeckung.
+      <br/><span style="color: var(--truu-muted); font-size: 11px;">Klick auf Marker für Details.</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<script>
+/* ============================================================
+ * truu Service-Abdeckung – DACH
+ * Speicherung: localStorage
+ * Geocoding:   Nominatim (OpenStreetMap)
+ * ============================================================ */
+
+const STORAGE_KEY = 'truu.technicians.v1';
+const DEFAULT_COLORS = [
+  '#0b5fa4', '#29b6d1', '#2ea169', '#e0943a',
+  '#9a4fc9', '#d9534f', '#f0a500', '#1abc9c',
+  '#8e44ad', '#34495e'
+];
+
+const state = {
+  technicians: loadState(),
+  markers: new Map(),  // id -> { marker, circle }
+  geocodeCache: {},
+  lastGeocode: 0
+};
+
+/* ---------- Map setup (DACH-Region) ---------- */
+const map = L.map('map', {
+  center: [48.5, 10.5],
+  zoom: 6,
+  zoomControl: true
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+// DACH-Bounds für "zurück zur Übersicht"
+const DACH_BOUNDS = L.latLngBounds([45.8, 5.8], [55.1, 17.2]);
+map.fitBounds(DACH_BOUNDS);
+
+/* ---------- Storage ---------- */
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('Konnte State nicht laden:', e);
+    return [];
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.technicians));
+  } catch (e) {
+    toast('Speicherfehler – evtl. ist der Browser-Speicher voll.', 'error');
+  }
+}
+
+/* ---------- Geocoding (PLZ -> lat/lng via Nominatim) ---------- */
+async function geocode(plz, country) {
+  const key = `${country}-${plz}`;
+  if (state.geocodeCache[key]) return state.geocodeCache[key];
+
+  // Rate limit: max 1 req/sec (Nominatim policy)
+  const now = Date.now();
+  const wait = Math.max(0, 1100 - (now - state.lastGeocode));
+  if (wait) await new Promise(r => setTimeout(r, wait));
+  state.lastGeocode = Date.now();
+
+  const params = new URLSearchParams({
+    postalcode: plz,
+    country: country,
+    format: 'json',
+    limit: '1',
+    addressdetails: '1'
+  });
+
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+    headers: { 'Accept-Language': 'de' }
+  });
+
+  if (!res.ok) throw new Error(`Geocoding fehlgeschlagen (${res.status})`);
+
+  const data = await res.json();
+  if (!data.length) throw new Error(`PLZ ${plz} (${country}) nicht gefunden`);
+
+  const result = {
+    lat: parseFloat(data[0].lat),
+    lng: parseFloat(data[0].lon),
+    city: data[0].address?.city
+        || data[0].address?.town
+        || data[0].address?.village
+        || data[0].address?.municipality
+        || data[0].address?.county
+        || '—'
+  };
+  state.geocodeCache[key] = result;
+  return result;
+}
+
+/* ---------- Technician rendering ---------- */
+function renderMarker(tech) {
+  if (!tech.lat || !tech.lng) return;
+
+  // clean existing
+  removeMarker(tech.id);
+
+  if (tech.active === false) return;
+
+  // Circle (coverage radius)
+  const circle = L.circle([tech.lat, tech.lng], {
+    radius: tech.radius * 1000,
+    color: tech.color,
+    fillColor: tech.color,
+    fillOpacity: 0.15,
+    weight: 2,
+    opacity: 0.7
+  }).addTo(map);
+
+  // Custom marker icon with color
+  const icon = L.divIcon({
+    className: 'truu-marker',
+    html: `<div style="
+      width:24px;height:24px;border-radius:50% 50% 50% 0;
+      background:${tech.color};
+      transform:rotate(-45deg);
+      border:2.5px solid #fff;
+      box-shadow:0 2px 6px rgba(10,37,64,0.35);
+      display:grid;place-items:center;
+    "><div style="
+      transform:rotate(45deg);
+      color:#fff;font-size:10px;font-weight:700;
+      line-height:1;
+    ">${(tech.name || '?').charAt(0).toUpperCase()}</div></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 22],
+    popupAnchor: [0, -20]
+  });
+
+  const marker = L.marker([tech.lat, tech.lng], { icon }).addTo(map);
+  marker.bindPopup(`
+    <div class="popup-title">${escapeHtml(tech.name)}</div>
+    <div class="popup-meta">
+      📍 ${escapeHtml(tech.city || '—')} · ${escapeHtml(tech.country)}-${escapeHtml(tech.plz)}<br/>
+      🔵 Radius: <strong>${tech.radius} km</strong>
+    </div>
+  `);
+
+  state.markers.set(tech.id, { marker, circle });
+}
+
+function removeMarker(id) {
+  const entry = state.markers.get(id);
+  if (!entry) return;
+  map.removeLayer(entry.marker);
+  map.removeLayer(entry.circle);
+  state.markers.delete(id);
+}
+
+function renderAll() {
+  // Clean map
+  for (const id of [...state.markers.keys()]) removeMarker(id);
+  // Render each
+  for (const t of state.technicians) renderMarker(t);
+  // Update list & stats
+  renderList();
+  renderStats();
+  saveState();
+}
+
+/* ---------- List rendering ---------- */
+function renderList() {
+  const list = document.getElementById('techList');
+  if (!state.technicians.length) {
+    list.innerHTML = `<div class="empty">
+      Noch keine Techniker.<br/>Füge deinen ersten oben hinzu.
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = state.technicians.map(t => `
+    <div class="tech-item ${t.active === false ? 'inactive' : ''}" data-id="${t.id}">
+      <div class="tech-dot" style="background:${t.color}"></div>
+      <div class="tech-info">
+        <div class="tech-name">${escapeHtml(t.name)}</div>
+        <div class="tech-meta">${escapeHtml(t.country)}-${escapeHtml(t.plz)} · ${escapeHtml(t.city || '—')} · ${t.radius} km</div>
+      </div>
+      <div class="tech-actions">
+        <button class="btn btn-ghost" data-act="toggle" title="${t.active === false ? 'Aktivieren' : 'Deaktivieren'}">
+          ${t.active === false ? '👁' : '◉'}
+        </button>
+        <button class="btn btn-ghost" data-act="focus" title="Auf Karte zeigen">⌖</button>
+        <button class="btn btn-danger-ghost" data-act="delete" title="Löschen">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderStats() {
+  document.getElementById('statCount').textContent = state.technicians.length;
+  const active = state.technicians.filter(t => t.active !== false && t.radius);
+  const avgR = active.length
+    ? Math.round(active.reduce((s, t) => s + t.radius, 0) / active.length)
+    : null;
+  document.getElementById('statRadius').textContent = avgR ? `${avgR} km` : '— km';
+}
+
+/* ---------- Utilities ---------- */
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function uid() {
+  return 't_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+}
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => { el.className = 'toast ' + type; }, 2800);
+}
+
+function nextColor() {
+  return DEFAULT_COLORS[state.technicians.length % DEFAULT_COLORS.length];
+}
+
+/* ---------- Form: add technician ---------- */
+document.getElementById('addForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('addBtn');
+  const name = document.getElementById('techName').value.trim();
+  const plz = document.getElementById('techPlz').value.trim();
+  const country = document.getElementById('techCountry').value;
+  const radius = parseInt(document.getElementById('techRadius').value, 10);
+  const color = document.getElementById('techColor').value;
+
+  if (!name || !plz || !radius) {
+    toast('Bitte fülle alle Felder aus.', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Geocoding läuft …';
+
+  try {
+    const geo = await geocode(plz, country);
+    const tech = {
+      id: uid(),
+      name, plz, country, radius, color,
+      lat: geo.lat,
+      lng: geo.lng,
+      city: geo.city,
+      active: true,
+      createdAt: Date.now()
+    };
+    state.technicians.push(tech);
+    renderAll();
+    toast(`${name} hinzugefügt (${geo.city})`, 'success');
+
+    // Reset form
+    document.getElementById('techName').value = '';
+    document.getElementById('techPlz').value = '';
+    document.getElementById('techColor').value = nextColor();
+
+    // Pan to new tech
+    map.setView([tech.lat, tech.lng], 8);
+  } catch (err) {
+    toast(err.message || 'Fehler beim Hinzufügen', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '+ Techniker hinzufügen';
+  }
+});
+
+/* ---------- List actions ---------- */
+document.getElementById('techList').addEventListener('click', (e) => {
+  const actBtn = e.target.closest('[data-act]');
+  if (!actBtn) return;
+  const item = actBtn.closest('.tech-item');
+  const id = item?.dataset.id;
+  const act = actBtn.dataset.act;
+  const tech = state.technicians.find(t => t.id === id);
+  if (!tech) return;
+
+  if (act === 'delete') {
+    if (!confirm(`"${tech.name}" wirklich löschen?`)) return;
+    state.technicians = state.technicians.filter(t => t.id !== id);
+    renderAll();
+    toast('Gelöscht', 'success');
+  } else if (act === 'toggle') {
+    tech.active = !(tech.active !== false);
+    renderAll();
+  } else if (act === 'focus') {
+    if (tech.lat && tech.lng) {
+      map.setView([tech.lat, tech.lng], 9);
+      const entry = state.markers.get(id);
+      if (entry) entry.marker.openPopup();
+    }
+  }
+});
+
+/* ---------- Export / Import ---------- */
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const blob = new Blob(
+    [JSON.stringify({ exportedAt: new Date().toISOString(), technicians: state.technicians }, null, 2)],
+    { type: 'application/json' }
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `truu-service-abdeckung-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Export erstellt', 'success');
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const techs = Array.isArray(data) ? data : data.technicians;
+    if (!Array.isArray(techs)) throw new Error('Ungültiges Format');
+
+    // Sanity: keep only valid ones
+    const valid = techs.filter(t => t.name && t.plz && t.country && t.radius && t.lat && t.lng)
+                       .map(t => ({
+                         id: t.id || uid(),
+                         name: t.name, plz: t.plz, country: t.country,
+                         radius: Number(t.radius), color: t.color || nextColor(),
+                         lat: Number(t.lat), lng: Number(t.lng),
+                         city: t.city || '—',
+                         active: t.active !== false,
+                         createdAt: t.createdAt || Date.now()
+                       }));
+
+    if (!confirm(`${valid.length} Techniker importieren? Bestehende werden überschrieben.`)) return;
+    state.technicians = valid;
+    renderAll();
+    toast(`${valid.length} Techniker importiert`, 'success');
+  } catch (err) {
+    toast('Import fehlgeschlagen: ' + err.message, 'error');
+  } finally {
+    e.target.value = '';
+  }
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!state.technicians.length) return;
+  if (!confirm(`Alle ${state.technicians.length} Techniker löschen? Das kann nicht rückgängig gemacht werden.`)) return;
+  state.technicians = [];
+  renderAll();
+  toast('Alles gelöscht', 'success');
+});
+
+/* ---------- Init ---------- */
+document.getElementById('techColor').value = nextColor();
+renderAll();
+
+// If techs exist, zoom to fit them
+if (state.technicians.length) {
+  const pts = state.technicians.filter(t => t.lat && t.lng).map(t => [t.lat, t.lng]);
+  if (pts.length === 1) {
+    map.setView(pts[0], 8);
+  } else if (pts.length > 1) {
+    map.fitBounds(L.latLngBounds(pts).pad(0.2));
+  }
+}
+</script>
+</body>
+</html>
