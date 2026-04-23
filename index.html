@@ -107,6 +107,54 @@
     font-style: italic;
   }
 
+  /* Sync status */
+  .sync-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-size: 11px;
+  }
+
+  .sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sync-dot.synced { background: #4ade80; box-shadow: 0 0 6px rgba(74, 222, 128, 0.6); }
+  .sync-dot.syncing { background: #fbbf24; animation: pulse 1s ease-in-out infinite; }
+  .sync-dot.offline { background: #f87171; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .sync-text {
+    flex: 1;
+    opacity: 0.85;
+  }
+
+  .sync-refresh {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+
+  .sync-refresh:hover { background: rgba(255,255,255,0.25); }
+  .sync-refresh:disabled { opacity: 0.5; cursor: wait; }
+
   .sidebar-body {
     flex: 1;
     overflow-y: auto;
@@ -447,6 +495,11 @@
         </div>
       </div>
       <div class="tagline">It's good. to be truu.</div>
+      <div class="sync-bar">
+        <div class="sync-dot syncing" id="syncDot"></div>
+        <div class="sync-text" id="syncText">Verbinde…</div>
+        <button class="sync-refresh" id="syncRefresh" title="Daten vom Server aktualisieren">↻</button>
+      </div>
     </div>
 
     <div class="sidebar-body">
@@ -552,11 +605,20 @@ const DEFAULT_COLORS = [
   '#8e44ad', '#34495e'
 ];
 
+// Cloud sync via JSONBin.io — alle Team-Mitglieder teilen denselben Bin
+const CLOUD = {
+  binId: '69ea7883aaba8821972eba56',
+  key:   '$2a$10$Y6eOYGq2gd29kyr4gbCIFuL5WE9wIdqzNrEtXSlXLsVxrC63xkDfu',
+  url:   'https://api.jsonbin.io/v3/b'
+};
+
 const state = {
-  technicians: loadState(),
-  markers: new Map(),  // id -> { marker, circle }
+  technicians: loadLocal(),  // Sofort lokalen Cache zeigen, Cloud folgt async
+  markers: new Map(),         // id -> { marker, circle }
   geocodeCache: {},
-  lastGeocode: 0
+  lastGeocode: 0,
+  saveTimer: null,            // Debounce für Cloud-Writes
+  lastCloudSync: 0
 };
 
 /* ---------- Map setup (DACH-Region) ---------- */
@@ -575,25 +637,83 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const DACH_BOUNDS = L.latLngBounds([45.8, 5.8], [55.1, 17.2]);
 map.fitBounds(DACH_BOUNDS);
 
-/* ---------- Storage ---------- */
-function loadState() {
+/* ---------- Storage: Local + Cloud ---------- */
+function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.warn('Konnte State nicht laden:', e);
+    console.warn('Konnte lokalen State nicht laden:', e);
     return [];
   }
 }
 
-function saveState() {
+function saveLocal() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.technicians));
-  } catch (e) {
-    toast('Speicherfehler – evtl. ist der Browser-Speicher voll.', 'error');
+  } catch (e) { /* stiller Fallback */ }
+}
+
+function setSyncStatus(status, message) {
+  const dot = document.getElementById('syncDot');
+  const text = document.getElementById('syncText');
+  if (!dot || !text) return;
+  dot.className = 'sync-dot ' + status;
+  const defaults = {
+    synced:  'Synchronisiert',
+    syncing: 'Synchronisiere…',
+    offline: 'Offline – nur lokal'
+  };
+  text.textContent = message || defaults[status] || status;
+}
+
+async function loadFromCloud() {
+  setSyncStatus('syncing', 'Lade Daten…');
+  try {
+    const res = await fetch(`${CLOUD.url}/${CLOUD.binId}/latest`, {
+      headers: { 'X-Master-Key': CLOUD.key }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const techs = Array.isArray(data?.record?.technicians) ? data.record.technicians : [];
+    state.technicians = techs;
+    saveLocal();
+    state.lastCloudSync = Date.now();
+    setSyncStatus('synced', `Aktuell · ${techs.length} Techniker`);
+    return techs;
+  } catch (err) {
+    console.warn('Cloud-Load fehlgeschlagen:', err);
+    setSyncStatus('offline', 'Offline – lokale Daten');
+    return state.technicians;
   }
+}
+
+// Fire-and-forget Cloud-Save, mit 400ms Debounce um Spam zu verhindern
+function saveToCloud() {
+  saveLocal();  // Lokal sofort (verhindert Datenverlust bei Netzaussetzer)
+  if (state.saveTimer) clearTimeout(state.saveTimer);
+  state.saveTimer = setTimeout(async () => {
+    setSyncStatus('syncing', 'Speichere…');
+    try {
+      const res = await fetch(`${CLOUD.url}/${CLOUD.binId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': CLOUD.key
+        },
+        body: JSON.stringify({ technicians: state.technicians })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      state.lastCloudSync = Date.now();
+      setSyncStatus('synced', `Aktuell · ${state.technicians.length} Techniker`);
+    } catch (err) {
+      console.warn('Cloud-Save fehlgeschlagen:', err);
+      setSyncStatus('offline', 'Nicht gespeichert – offline?');
+      toast('Offline: Änderung bleibt lokal, wird später synchronisiert.', 'error');
+    }
+  }, 400);
 }
 
 /* ---------- Geocoding (PLZ -> lat/lng via Nominatim) ---------- */
@@ -697,7 +817,7 @@ function removeMarker(id) {
   state.markers.delete(id);
 }
 
-function renderAll() {
+function renderAll({ sync = true } = {}) {
   // Clean map
   for (const id of [...state.markers.keys()]) removeMarker(id);
   // Render each
@@ -705,7 +825,8 @@ function renderAll() {
   // Update list & stats
   renderList();
   renderStats();
-  saveState();
+  if (sync) saveToCloud();
+  else saveLocal();
 }
 
 /* ---------- List rendering ---------- */
@@ -902,19 +1023,32 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   toast('Alles gelöscht', 'success');
 });
 
+/* ---------- Refresh button ---------- */
+document.getElementById('syncRefresh').addEventListener('click', async () => {
+  const btn = document.getElementById('syncRefresh');
+  btn.disabled = true;
+  await loadFromCloud();
+  renderAll({ sync: false });  // nur rendern, nicht zurück pushen
+  fitMapToTechnicians();
+  btn.disabled = false;
+});
+
+function fitMapToTechnicians() {
+  const pts = state.technicians.filter(t => t.lat && t.lng).map(t => [t.lat, t.lng]);
+  if (pts.length === 1) map.setView(pts[0], 8);
+  else if (pts.length > 1) map.fitBounds(L.latLngBounds(pts).pad(0.2));
+}
+
 /* ---------- Init ---------- */
 document.getElementById('techColor').value = nextColor();
-renderAll();
+renderAll({ sync: false });  // Lokaler Cache sofort rendern
 
-// If techs exist, zoom to fit them
-if (state.technicians.length) {
-  const pts = state.technicians.filter(t => t.lat && t.lng).map(t => [t.lat, t.lng]);
-  if (pts.length === 1) {
-    map.setView(pts[0], 8);
-  } else if (pts.length > 1) {
-    map.fitBounds(L.latLngBounds(pts).pad(0.2));
-  }
-}
+// Cloud laden und UI aktualisieren
+(async () => {
+  await loadFromCloud();
+  renderAll({ sync: false });
+  fitMapToTechnicians();
+})();
 </script>
 </body>
 </html>
